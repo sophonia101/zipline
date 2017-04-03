@@ -36,6 +36,17 @@ class Transaction(object):
     def __getitem__(self, name):
         return self.__dict__[name]
 
+    def __repr__(self):
+        return """{typename}(order_id={order_id}, sid={sid}, \
+dt={dt}, amount={amount}, price={price})""".format(
+            typename=type(self).__name__,
+            order_id=self.order_id,
+            sid=self.sid,
+            dt=self.dt,
+            amount=self.amount,
+            price=self.price
+        )
+
     def to_dict(self):
         py = copy(self.__dict__)
         del py['type']
