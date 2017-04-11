@@ -162,8 +162,17 @@ class SlippageModel(with_metaclass(abc.ABCMeta)):
         return self.__dict__
 
 
-class VolumeShareSlippage(SlippageModel):
-    """Model slippage as a function of the volume of shares traded.
+class EquitySlippageModel(SlippageModel):
+    pass
+
+
+class FutureSlippageModel(SlippageModel):
+    pass
+
+
+class VolumeSlippage(object):
+    """
+    Mixin for Equity and Future slippage models calculated from trade volume.
     """
 
     def __init__(self, volume_limit=DEFAULT_VOLUME_SLIPPAGE_BAR_LIMIT,
@@ -172,7 +181,7 @@ class VolumeShareSlippage(SlippageModel):
         self.volume_limit = volume_limit
         self.price_impact = price_impact
 
-        super(VolumeShareSlippage, self).__init__()
+        super(VolumeSlippage, self).__init__()
 
     def __repr__(self):
         return """
@@ -233,13 +242,24 @@ class VolumeShareSlippage(SlippageModel):
         )
 
 
-class FixedSlippage(SlippageModel):
-    """Model slippage as a fixed spread.
+class VolumeShareSlippage(VolumeSlippage, EquitySlippageModel):
+    """
+    Model slippage as a function of the volume of shares traded.
+    """
+    pass
 
-    Parameters
-    ----------
-    spread : float, optional
-        spread / 2 will be added to buys and subtracted from sells.
+
+class VolumeContractSlippage(VolumeSlippage, FutureSlippageModel):
+    """
+    Model slippage as a function of the volume of contracts traded.
+    """
+    pass
+
+
+class FixedSlippageBase(object):
+    """
+    Mixin class for Equity and Future slippage models calculated using a fixed
+    spread.
     """
 
     def __init__(self, spread=0.0):
@@ -252,3 +272,31 @@ class FixedSlippage(SlippageModel):
             price + (self.spread / 2.0 * order.direction),
             order.amount
         )
+
+
+class FixedEquitySlippage(FixedSlippageBase, EquitySlippageModel):
+    """
+    Model slippage for equities as a fixed spread.
+
+    Parameters
+    ----------
+    spread : float, optional
+        spread / 2 will be added to buys and subtracted from sells.
+    """
+    pass
+
+
+class FixedFutureSlippage(FixedSlippageBase, FutureSlippageModel):
+    """
+    Model slippage for futures as a fixed spread.
+
+    Parameters
+    ----------
+    spread : float, optional
+        spread / 2 will be added to buys and subtracted from sells.
+    """
+    pass
+
+
+# Alias FixedSlippage for backwards compatibility.
+FixedSlippage = FixedEquitySlippage

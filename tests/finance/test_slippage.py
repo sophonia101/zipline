@@ -26,13 +26,15 @@ from nose_parameterized import parameterized
 import pandas as pd
 from pandas.tslib import normalize_date
 
-from zipline.finance.slippage import VolumeShareSlippage, \
-    fill_price_worse_than_limit_price
-
-from zipline.protocol import DATASOURCE_TYPE, BarData
-from zipline.finance.blotter import Order
-from zipline.finance.asset_restrictions import NoRestrictions
 from zipline.data.data_portal import DataPortal
+from zipline.finance.asset_restrictions import NoRestrictions
+from zipline.finance.blotter import Order
+from zipline.finance.slippage import (
+    fill_price_worse_than_limit_price,
+    VolumeContractSlippage,
+    VolumeShareSlippage,
+)
+from zipline.protocol import DATASOURCE_TYPE, BarData
 from zipline.testing import tmp_bcolz_equity_minute_bar_reader
 from zipline.testing.fixtures import (
     WithCreateBarData,
@@ -523,10 +525,10 @@ class SlippageTestCase(WithCreateBarData,
             self.assertEquals(value, txn[key])
 
 
-class VolumeShareSlippageTestCase(WithCreateBarData,
-                                  WithSimParams,
-                                  WithDataPortal,
-                                  ZiplineTestCase):
+class VolumeSlippageTestCase(WithCreateBarData,
+                             WithSimParams,
+                             WithDataPortal,
+                             ZiplineTestCase):
 
     START_DATE = pd.Timestamp('2006-01-05 14:31', tz='utc')
     END_DATE = pd.Timestamp('2006-01-05 14:36', tz='utc')
@@ -561,9 +563,35 @@ class VolumeShareSlippageTestCase(WithCreateBarData,
         )
 
     @classmethod
+    def make_futures_info(cls):
+        return pd.DataFrame({
+            'sid': [1000],
+            'root_symbol': ['CL'],
+            'symbol': ['CLF06'],
+            'start_date': [cls.ASSET_FINDER_EQUITY_START_DATE],
+            'end_date': [cls.ASSET_FINDER_EQUITY_END_DATE],
+            'multiplier': [500],
+            'exchange': ['CME'],
+        })
+
+    @classmethod
+    def make_future_minute_bar_data(cls):
+        yield 1000, pd.DataFrame(
+            {
+                'open': [5.00],
+                'high': [5.15],
+                'low': [4.85],
+                'close': [5.00],
+                'volume': [100],
+            },
+            index=[cls.minutes[0]],
+        )
+
+    @classmethod
     def init_class_fixtures(cls):
-        super(VolumeShareSlippageTestCase, cls).init_class_fixtures()
+        super(VolumeSlippageTestCase, cls).init_class_fixtures()
         cls.ASSET133 = cls.env.asset_finder.retrieve_asset(133)
+        cls.ASSET1000 = cls.env.asset_finder.retrieve_asset(1000)
 
     def test_volume_share_slippage(self):
 
@@ -630,6 +658,44 @@ class VolumeShareSlippageTestCase(WithCreateBarData,
         ))
 
         self.assertEquals(len(orders_txns), 0)
+
+    def test_volume_contract_slippage(self):
+        slippage_model = VolumeContractSlippage(
+            volume_limit=100, price_impact=0.1,
+        )
+
+        open_orders = [
+            Order(
+                dt=datetime.datetime(2006, 1, 5, 14, 30, tzinfo=pytz.utc),
+                amount=10,
+                filled=0,
+                sid=self.ASSET1000,
+            )
+        ]
+
+        bar_data = self.create_bardata(
+            simulation_dt_func=lambda: self.minutes[0],
+        )
+
+        orders_txns = list(
+            slippage_model.simulate(bar_data, self.ASSET1000, open_orders)
+        )
+
+        self.assertEquals(len(orders_txns), 1)
+        _, txn = orders_txns[0]
+
+        expected_txn = {
+            'price': float(5.005),
+            'dt': datetime.datetime(2006, 1, 5, 14, 31, tzinfo=pytz.utc),
+            'amount': 10,
+            'sid': 1000,
+            'commission': None,
+            'type': DATASOURCE_TYPE.TRANSACTION,
+            'order_id': open_orders[0].id,
+        }
+
+        self.assertIsNotNone(txn)
+        self.assertEquals(expected_txn, txn.__dict__)
 
 
 class OrdersStopTestCase(WithSimParams,

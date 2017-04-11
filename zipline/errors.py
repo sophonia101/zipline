@@ -77,8 +77,8 @@ class UnsupportedSlippageModel(ZiplineError):
     FixedSlipapge
     """
     msg = """
-You attempted to set slippage with an unsupported class. \
-Please use VolumeShareSlippage or FixedSlippage.
+You attempted to set slippage with an unsupported class. Slippage models for \
+{asset_type} must be of type {slippage_type}.
 """.strip()
 
 
@@ -125,8 +125,8 @@ class UnsupportedCommissionModel(ZiplineError):
     PerDollar commission
     """
     msg = """
-You attempted to set commission with an unsupported class. \
-Please use PerShare or PerTrade.
+You attempted to set commission with an unsupported class. Commission models \
+for {asset_type} must be of type {commission_type}.
 """.strip()
 
 
