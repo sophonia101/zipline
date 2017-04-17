@@ -343,8 +343,8 @@ cdef class OrderedContracts(object):
             # next contract.
             # This is in lieu of more explicit support for
             # contracts with quarterly rolls. e.g. Eurodollar
-            if prev is not None and contract.start_date > prev.contract.auto_close_date:
-                continue
+            # if prev is not None and contract.start_date > prev.contract.auto_close_date:
+            #     continue
 
             if not chain_predicate(contract):
                 continue

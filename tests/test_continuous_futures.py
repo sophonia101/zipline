@@ -1364,8 +1364,6 @@ class OrderedContractsTestCase(WithAssetFinder,
             'notice_date': pd.date_range('2016-01-01', periods=3, tz="UTC"),
             'expiration_date': pd.date_range(
                 '2016-01-01', periods=3, tz="UTC"),
-            'expiration_date': pd.date_range(
-                '2016-01-01', periods=3, tz="UTC"),
             'auto_close_date': pd.date_range(
                 '2016-01-01', periods=3, tz="UTC"),
             'tick_size': [0.001] * 3,
@@ -1373,28 +1371,41 @@ class OrderedContractsTestCase(WithAssetFinder,
             'exchange': ['CME'] * 3,
         })
         # BZ is set up to test the case where the first contract in a chain has
-        # an auto close date before its start date.
+        # an auto close date before its start date. It also tests the case
+        # where a contract in the chain has a start date after the auto close
+        # date of the previous contract, leaving a gap with no active contract.
         bz_frame = DataFrame({
-            'root_symbol': ['BZ'] * 3,
-            'asset_name': ['Baz'] * 3,
-            'symbol': ['BZF16', 'BZG16', 'BZH16'],
-            'sid': range(8, 11),
-            'start_date': pd.date_range('2015-01-02', periods=3, tz='UTC'),
+            'root_symbol': ['BZ'] * 4,
+            'asset_name': ['Baz'] * 4,
+            'symbol': ['BZF15', 'BZG15', 'BZH15', 'BZJ16'],
+            'sid': range(8, 12),
+            'start_date': [
+                pd.Timestamp('2015-01-02', tz='UTC'),
+                pd.Timestamp('2015-01-03', tz='UTC'),
+                pd.Timestamp('2015-02-23', tz='UTC'),
+                pd.Timestamp('2015-02-24', tz='UTC'),
+            ],
             'end_date': pd.date_range(
-                '2015-01-15', periods=3, freq='M', tz='UTC',
+                '2015-02-01', periods=4, freq='MS', tz='UTC',
             ),
-            'notice_date': pd.date_range(
-                '2014-12-31', periods=3, freq='M', tz='UTC',
-            ),
+            'notice_date': [
+                pd.Timestamp('2014-12-31', tz='UTC'),
+                pd.Timestamp('2015-02-18', tz='UTC'),
+                pd.Timestamp('2015-03-18', tz='UTC'),
+                pd.Timestamp('2015-04-17', tz='UTC'),
+            ],
             'expiration_date': pd.date_range(
-                '2015-01-15', periods=3, freq='M', tz='UTC',
+                '2015-02-01', periods=4, freq='MS', tz='UTC',
             ),
-            'auto_close_date': pd.date_range(
-                '2014-12-29', periods=3, freq='M', tz='UTC',
-            ),
-            'tick_size': [0.001] * 3,
-            'multiplier': [1000.0] * 3,
-            'exchange': ['CME'] * 3,
+            'auto_close_date': [
+                pd.Timestamp('2014-12-29', tz='UTC'),
+                pd.Timestamp('2015-02-16', tz='UTC'),
+                pd.Timestamp('2015-03-16', tz='UTC'),
+                pd.Timestamp('2015-04-15', tz='UTC'),
+            ],
+            'tick_size': [0.001] * 4,
+            'multiplier': [1000.0] * 4,
+            'exchange': ['CME'] * 4,
         })
 
         return pd.concat([fo_frame, ba_frame, bz_frame])
@@ -1496,7 +1507,7 @@ class OrderedContractsTestCase(WithAssetFinder,
             "it does not satisfy the roll predicate.")
 
     def test_auto_close_before_start(self):
-        contract_sids = array([8, 9, 10], dtype=int64)
+        contract_sids = array([8, 9, 10, 11], dtype=int64)
         contracts = self.asset_finder.retrieve_all(contract_sids)
         oc = OrderedContracts('BZ', deque(contracts))
 
@@ -1504,6 +1515,19 @@ class OrderedContractsTestCase(WithAssetFinder,
         self.assertEqual(oc.start_date, contracts[1].start_date)
         self.assertEqual(oc.end_date, contracts[-1].end_date)
         self.assertEqual(oc.contract_before_auto_close(oc.start_date.value), 9)
+
+        # The OrderedContracts chain should end on the last contract even
+        # though there is a gap between the auto close date of BZG16 and the
+        # start date of BZH16. During this period, BZH16 should be considered
+        # the center contract, as a placeholder of sorts.
+        self.assertEqual(
+            oc.contract_before_auto_close(contracts[1].notice_date.value),
+            10,
+        )
+        self.assertEqual(
+            oc.contract_before_auto_close(contracts[2].start_date.value),
+            10,
+        )
 
 
 class NoPrefetchContinuousFuturesTestCase(ContinuousFuturesTestCase):
