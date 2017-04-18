@@ -23,6 +23,7 @@ import pandas as pd
 import pytz
 from toolz import curry
 
+from zipline.utils.calendars import get_calendar
 from zipline.utils.input_validation import preprocess
 from zipline.utils.memoize import lazyval
 
@@ -50,6 +51,7 @@ __all__ = [
     # Factory API
     'date_rules',
     'time_rules',
+    'calendars',
     'make_eventrule',
 ]
 
@@ -601,6 +603,11 @@ class time_rules(object):
     market_open = AfterOpen
     market_close = BeforeClose
     every_minute = Always
+
+
+class calendars(object):
+    us_equities = get_calendar('NYSE')
+    us_futures = get_calendar('us_futures')
 
 
 def make_eventrule(date_rule, time_rule, cal, half_days=True):
