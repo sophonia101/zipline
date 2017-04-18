@@ -605,9 +605,22 @@ class time_rules(object):
     every_minute = Always
 
 
-class calendars(object):
-    us_equities = get_calendar('NYSE')
-    us_futures = get_calendar('us_futures')
+class CalendarsMeta(type):
+
+    @property
+    def us_equities(self):
+        return get_calendar('NYSE')
+
+    @property
+    def us_futures(self):
+        return get_calendar('us_futures')
+
+
+class calendars(six.with_metaclass(CalendarsMeta)):
+    # Use a metaclass to set the calendar properties on this class so that we
+    # do no have to eagerly get the calendars in order to set them as class
+    # attributes here.
+    pass
 
 
 def make_eventrule(date_rule, time_rule, cal, half_days=True):
