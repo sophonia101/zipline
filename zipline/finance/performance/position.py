@@ -37,6 +37,7 @@ from collections import OrderedDict
 import numpy as np
 import logbook
 
+from zipline.assets import Future
 log = logbook.Logger('Performance')
 
 
@@ -167,7 +168,12 @@ class Position(object):
             return
 
         prev_cost = self.cost_basis * self.amount
-        new_cost = prev_cost + cost
+        if isinstance(sid, Future):
+            cost_to_use = cost / sid.multiplier
+        else:
+            cost_to_use = cost
+
+        new_cost = prev_cost + cost_to_use
         self.cost_basis = new_cost / self.amount
 
     def __repr__(self):
